@@ -1,0 +1,2 @@
+chmod +x servidor.sh
+sudo ./servidor.sh

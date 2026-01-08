@@ -9,7 +9,7 @@ export DEBIAN_FRONTEND=noninteractive
 DOMAIN="ambientesoperativos.pt"
 DC1="ambientesoperativos"
 DC2="pt"
-IP="192.168.56.10"
+IP="10.213.181.41"
 HOSTNAME="srv-ambop"
 
 LDAP_ADMIN_PASS="admin123"

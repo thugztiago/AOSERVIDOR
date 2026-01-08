@@ -1,2 +1,5 @@
 chmod +x servidor.sh
 sudo ./servidor.sh
+
+chmod +x login.sh
+sudo ./login.sh

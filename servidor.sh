@@ -12,7 +12,7 @@ DC2="pt"
 IP="10.213.181.41"
 HOSTNAME="srv-ambop"
 
-LDAP_ADMIN_PASS="admin123"
+LDAP_ADMIN_PASS="admin"
 USER_NAME="admin"
 USER_PASS="admin"
 USER_UID="10000"

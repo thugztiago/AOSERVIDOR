@@ -13,8 +13,8 @@ IP="192.168.56.10"
 HOSTNAME="srv-ambop"
 
 LDAP_ADMIN_PASS="admin123"
-USER_NAME="aluno"
-USER_PASS="aluno123"
+USER_NAME="admin"
+USER_PASS="admin"
 USER_UID="10000"
 GROUP_GID="5000"
 

@@ -3,3 +3,5 @@ sudo ./servidor.sh
 
 chmod +x login.sh
 sudo ./login.sh
+
+ldap admin pass : password123

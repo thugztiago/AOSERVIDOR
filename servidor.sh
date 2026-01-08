@@ -1,7 +1,10 @@
 #!/bin/bash
+set -e
+
+export DEBIAN_FRONTEND=noninteractive
 
 # ==============================
-# VARIÁVEIS DO PROJETO
+# VARIÁVEIS
 # ==============================
 DOMAIN="ambientesoperativos.pt"
 DC1="ambientesoperativos"
@@ -22,7 +25,7 @@ hostnamectl set-hostname $HOSTNAME
 apt update -y
 
 # ==============================
-echo "🔐 INSTALAR E CONFIGURAR OPENLDAP"
+echo "🔐 OPENLDAP"
 # ==============================
 echo "slapd slapd/no_configuration boolean false" | debconf-set-selections
 echo "slapd slapd/domain string $DOMAIN" | debconf-set-selections
@@ -31,11 +34,14 @@ echo "slapd slapd/password1 password $LDAP_ADMIN_PASS" | debconf-set-selections
 echo "slapd slapd/password2 password $LDAP_ADMIN_PASS" | debconf-set-selections
 
 apt install slapd ldap-utils -y
+systemctl enable slapd
+systemctl restart slapd
+sleep 3
 
 # ==============================
-echo "📁 CRIAR ESTRUTURA LDAP"
+echo "📁 ESTRUTURA LDAP"
 # ==============================
-cat <<EOF > base.ldif
+cat > base.ldif <<EOF
 dn: ou=users,dc=$DC1,dc=$DC2
 objectClass: organizationalUnit
 ou: users
@@ -48,9 +54,9 @@ EOF
 ldapadd -x -D cn=admin,dc=$DC1,dc=$DC2 -w $LDAP_ADMIN_PASS -f base.ldif
 
 # ==============================
-echo "👥 CRIAR GRUPO"
+echo "👥 GRUPO"
 # ==============================
-cat <<EOF > grupo.ldif
+cat > grupo.ldif <<EOF
 dn: cn=alunos,ou=groups,dc=$DC1,dc=$DC2
 objectClass: posixGroup
 cn: alunos
@@ -60,16 +66,16 @@ EOF
 ldapadd -x -D cn=admin,dc=$DC1,dc=$DC2 -w $LDAP_ADMIN_PASS -f grupo.ldif
 
 # ==============================
-echo "👤 CRIAR UTILIZADOR LDAP"
+echo "👤 UTILIZADOR"
 # ==============================
 HASH=$(slappasswd -s $USER_PASS)
 
-cat <<EOF > user.ldif
+cat > user.ldif <<EOF
 dn: uid=$USER_NAME,ou=users,dc=$DC1,dc=$DC2
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
-cn: Utilizador $USER_NAME
+cn: $USER_NAME
 sn: $USER_NAME
 uid: $USER_NAME
 uidNumber: $USER_UID
@@ -82,22 +88,22 @@ EOF
 ldapadd -x -D cn=admin,dc=$DC1,dc=$DC2 -w $LDAP_ADMIN_PASS -f user.ldif
 
 # ==============================
-echo "🌐 INSTALAR E CONFIGURAR DNS"
+echo "🌐 DNS (Bind9)"
 # ==============================
 apt install bind9 -y
 
-cat <<EOF > /etc/bind/named.conf.local
+cat > /etc/bind/named.conf.local <<EOF
 zone "$DOMAIN" {
     type master;
     file "/etc/bind/db.$DOMAIN";
 };
 EOF
 
-cat <<EOF > /etc/bind/db.$DOMAIN
+cat > /etc/bind/db.$DOMAIN <<EOF
 \$TTL 604800
-@ IN SOA $HOSTNAME. root.$DOMAIN. (
+@ IN SOA $HOSTNAME.$DOMAIN. root.$DOMAIN. (
     2 604800 86400 2419200 604800 )
-@ IN NS $HOSTNAME.
+@ IN NS $HOSTNAME.$DOMAIN.
 $HOSTNAME IN A $IP
 intranet IN A $IP
 EOF
@@ -105,13 +111,14 @@ EOF
 systemctl restart bind9
 
 # ==============================
-echo "🌍 INSTALAR APACHE + PHP + LDAP"
+echo "🌍 APACHE + PHP"
 # ==============================
 apt install apache2 php php-ldap -y
+echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 mkdir -p /var/www/intranet
 
-cat <<EOF > /etc/apache2/sites-available/intranet.conf
+cat > /etc/apache2/sites-available/intranet.conf <<EOF
 <VirtualHost *:80>
     ServerName intranet.$DOMAIN
     DocumentRoot /var/www/intranet
@@ -122,9 +129,9 @@ a2ensite intranet
 systemctl reload apache2
 
 # ==============================
-echo "🔑 CRIAR PORTAL INTRANET (PHP + LDAP)"
+echo "🔑 PORTAL LDAP"
 # ==============================
-cat <<'EOF' > /var/www/intranet/index.php
+cat > /var/www/intranet/index.php <<'EOF'
 <?php
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $ldap = ldap_connect("ldap://localhost");
@@ -132,7 +139,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $user = $_POST["user"];
     $pass = $_POST["pass"];
-
     $dn = "uid=$user,ou=users,dc=ambientesoperativos,dc=pt";
 
     if (@ldap_bind($ldap, $dn, $pass)) {
@@ -149,6 +155,7 @@ Password: <input type="password" name="pass"><br>
 </form>
 EOF
 
-# ==============================
+chown -R www-data:www-data /var/www/intranet
+chmod -R 755 /var/www/intranet
+
 echo "✅ SERVIDOR TOTALMENTE CONFIGURADO"
-# ==============================
